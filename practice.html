@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Esperking's Weather App</title>
+    
+    <style>
+        :root {
+            --primary: #0284c7;
+            --primary-dark: #0369a1;
+            --bg: #f0f9ff;
+            --card-bg: #ffffff;
+            --text: #0f172a;
+            --text-light: #64748b;
+            --border: #bae6fd;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 1rem;
+        }
+
+        .dashboard-container {
+            width: 100%;
+            max-width: 450px;
+        }
+
+        h1 {
+            text-align: center;
+            color: var(--primary-dark);
+            font-size: 2rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: var(--text-light);
+            font-size: 0.9rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .search-box {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        input {
+            flex: 1;
+            padding: 0.75rem 1rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 1rem;
+            outline: none;
+            background: white;
+            transition: border-color 0.2s;
+        }
+
+        input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+        }
+
+        button {
+            padding: 0.75rem 1.25rem;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            background-color: var(--primary-dark);
+        }
+
+        .weather-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 2rem;
+            text-align: center;
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.05);
+            margin-bottom: 1rem;
+        }
+
+        .weather-card.hidden {
+            display: none;
+        }
+
+        .weather-card h2 {
+            font-size: 1.5rem;
+            color: var(--text);
+            margin-bottom: 0.5rem;
+        }
+
+        .temp-display {
+            font-size: 4rem;
+            font-weight: 800;
+            color: var(--primary);
+            line-height: 1;
+            margin-bottom: 0.5rem;
+        }
+
+        .unit {
+            font-size: 2rem;
+            font-weight: 600;
+            vertical-align: super;
+        }
+
+        .condition {
+            font-size: 1.1rem;
+            color: var(--text-light);
+            text-transform: capitalize;
+            margin-bottom: 1.5rem;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            border-top: 1px solid #e2e8f0;
+            padding-top: 1rem;
+        }
+
+        .metric {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .metric .label {
+            font-size: 0.8rem;
+            color: var(--text-light);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .metric .value {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: var(--text);
+        }
+
+        .message-container {
+            text-align: center;
+            color: var(--text-light);
+            font-size: 0.95rem;
+            padding: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <main class="dashboard-container">
+        <h1>Dashboard</h1>
+        <p class="subtitle">Real Time tracking powered by public APIs</p>
+
+        <!-- Search Bar -->
+        <div class="search-box">
+            <input type="text" id="city-input" placeholder="Enter a City Name" autocomplete="off">
+            <button id="search-btn">Click for Weather</button>
+        </div>
+
+        <!-- Weather Card -->
+        <div id="weather-card" class="weather-card hidden">
+            <h2 id="city-name">City Name</h2>
+            <div class="temp-display">
+                <span id="temperature">--</span><span class="unit">°F</span>
+            </div>
+            <p id="weather-condition" class="condition">Condition</p>
+            <div class="metrics-grid">
+                <div class="metric">
+                    <span class="label">Humidity</span>
+                    <span id="humidity" class="value">--%</span>
+                </div>
+                <div class="metric">
+                    <span class="label">Wind Speed</span>
+                    <span id="wind-speed" class="value">-- mph</span>
+                </div>
+            </div>
+        </div>
+
+        <!--Status and Error stuff-->
+        <div id="message-container" class="message-container">
+            <p>Type a city above and click the button yo.</p>
+        </div> 
+    </main>
+
+    <script>
+        // DOM References aka nodes
+        const cityInput = document.querySelector('#city-input');
+        const searchBtn = document.querySelector('#search-btn');
+        const weatherCard = document.querySelector('#weather-card');
+        const messageContainer = document.querySelector('#message-container');
+        
+        // Actual information to display
+        const cityNameEl = document.querySelector('#city-name');
+        const tempEl = document.querySelector('#temperature');
+        const conditionEl = document.querySelector('#weather-condition');
+        const humidityEl = document.querySelector('#humidity');
+        const windSpeedEl = document.querySelector('#wind-speed');
+
+        function getWeatherDescription(code){
+            const weatherMap = {
+                0: "Clear AF",
+                1: "Not Clear AF",
+                2: "Thar be Clouds",
+                3: "Thar be Many Clouds",
+                45: "Fogzilla",
+                51: "Its Spittin",
+                61: "Raininininin",
+                71: "SnowmyGod",
+                95: "Lightnin b Frightnin"
+            };
+            return weatherMap[code] || "Fair tho";
+        }
+        
+        // Get weather data asynchronously
+        async function fetchWeather() {
+            const cityName = cityInput.value.trim();
+
+            if (!cityName) {
+                messageContainer.textContent = "I don't have that city";
+                return;
+            }
+            
+            messageContainer.textContent = `searching for "${cityName}"..`;
+            weatherCard.classList.add('hidden');
+
+            try {
+                const geoResponse = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cityName)}&count=1`);
+                const geoData = await geoResponse.json();
+
+                if (!geoData.results || geoData.results.length === 0) {
+                    messageContainer.textContent = `City not found: "${cityName}". Try anotha`;
+                    return;
+                }
+
+                const location = geoData.results[0];
+                const { latitude, longitude, name, country } = location;
+
+                const weatherResponse = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&temperature_unit=fahrenheit&wind_speed_unit=mph`);
+                const weatherData = await weatherResponse.json();
+
+                const current = weatherData.current;
+
+                // UI update
+                cityNameEl.textContent = `${name}, ${country || ''}`;
+                tempEl.textContent = Math.round(current.temperature_2m);
+                conditionEl.textContent = getWeatherDescription(current.weather_code);
+                humidityEl.textContent = `${current.relative_humidity_2m}%`;
+                windSpeedEl.textContent = `${current.wind_speed_10m} mph`;
+
+                // Reveal card and clear messages
+                weatherCard.classList.remove('hidden');
+                messageContainer.textContent = "";
+
+            } catch (error) {
+                console.error("API Error:", error);
+                messageContainer.textContent = "It's not me, it's you";
+            }
+        }    
+
+        // Event Listeners
+        searchBtn.addEventListener('click', fetchWeather);
+        cityInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                fetchWeather();
+            }
+        });
+    </script>
+</body>
+</html>
